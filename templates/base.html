@@ -1,5 +1,5 @@
 {% load static %}
-{% load django_bootstrap5 %}
+{% load bootstrap5 %}
 <!DOCTYPE html>
 <html lang="ru">
   <head>
@@ -12,7 +12,7 @@
     <title>
       {% block title %}{% endblock %}
     </title>
-    {% bootstrap_css %}
+    {% bootstrap5_css %}
   </head>
   <body>
     {% include "includes/header.html" %}
@@ -21,6 +21,7 @@
         {% block content %}{% endblock %}
       </div>
     </main>
+    {% bootstrap5_javascript %}
     {% include "includes/footer.html" %}
   </body>
 </html>

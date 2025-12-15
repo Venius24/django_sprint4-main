@@ -25,10 +25,34 @@ SECRET_KEY = 'django-insecure-ck1=u$6)gnb*w8+v97zjxb2dzn5+^m30169!vj(1!m01y2!scn
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+]
 
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
 
-# Application definition
+ROOT_URLCONF = 'blogicum.urls'
+
+CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
+
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+
+EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+
+LOGIN_REDIRECT_URL = 'pages:homepage'
+
+MEDIA_ROOT = BASE_DIR / 'media' 
+
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+
+EMAIL_FILE_PATH = BASE_DIR / 'sent_emails' 
+
+LOGIN_REDIRECT_URL = 'pages:about'
+
+LOGIN_URL = 'login' 
+
 
 INSTALLED_APPS = [
     'blog',
@@ -39,7 +63,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'bootstrap5',
+    'debug_toolbar',
 ]
+    
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -49,6 +76,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'blogicum.urls'
@@ -118,7 +146,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+# URL to serve media files uploaded by users during development
+MEDIA_URL = '/media/'
 
 STATICFILES_DIRS = [BASE_DIR / 'static',]
 

@@ -1,34 +1,21 @@
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.views.generic import TemplateView
 
-# Create your views here.
-def about(request):
+def not_found(request, exception):
+    return render(request, 'pages/404.html', status=404)
+
+def server_error(request):
+    return render(request, 'pages/500.html', status=500)
+
+def permission_denied(request, exception):
+    return render(request, 'pages/403csrf.html', status=403)
+
+def csrf_failure(request, reason=""):
+    return render(request, 'pages/403csrf.html', status=403)
+
+class HomePageView(TemplateView):
     template_name = 'pages/about.html'
-    title = "О проекте"
-    context = {
-        'title': title
-    }
-    return render(request, template_name, context)
 
-def rules(request):
+class Rules(TemplateView):
     template_name = 'pages/rules.html'
-    title = 'Наши правила'
-    context = {
-        'title': title,
-    }
-    return render(request, template_name, context)
-
-def product_list(request):
-    template_name = 'catalog/product_list.html'
-    title = 'Список товаров ACME'
-    products = [
-      'Iron carrot',
-      'Giant mousetrap',  
-      'Dehydrated boulders',
-      'Invisible paint',
-    ]
-    context = {
-        'title': title,
-        'products': products,
-    }
-    return render(request, template_name, context)
