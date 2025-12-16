@@ -3,10 +3,11 @@ from django.utils import timezone
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.contrib import messages
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
-from .forms import PostForm, CommentForm
+from .forms import PostForm, CommentForm, UserForm
 from .models import Post, Category, Location, Comment
 
 User = get_user_model()
@@ -20,7 +21,8 @@ class PostListView(ListView):
     def get_queryset(self):
         return Post.objects.filter(
             is_published=True,
-            pub_date__lte=timezone.now()
+            pub_date__lte=timezone.now(),
+            category__is_published=True,
         ).order_by('-pub_date')
 
 
@@ -33,7 +35,7 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.author = self.request.user
-        form.instance.pub_date = timezone.now()
+
         return super().form_valid(form)
     
     def get_success_url(self):
@@ -90,40 +92,61 @@ class ProfileListView(ListView):
     context_object_name = 'post_list'
     paginate_by = 10
 
+    def get_queryset(self):
+        # Сохраняем пользователя в атрибут класса, чтобы не искать его дважды
+        self.author = get_object_or_404(User, username=self.kwargs['username'])
+        queryset = Post.objects.filter(author=self.author)
+
+        if self.request.user != self.author:
+            queryset = queryset.filter(pub_date__lte=timezone.now(), is_published=True)
+
+        return queryset.order_by('-pub_date')
+    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        target_username = self.kwargs['username']
-        profile_object = get_object_or_404(User, username=target_username)
-        context['profile'] = profile_object
+        # Используем уже найденного автора
+        context['profile'] = self.author
         return context
-
-    def get_queryset(self):
-        # 1. Получаем имя пользователя из URL
-        target_username = self.kwargs['username']
-        
-        # 2. Находим посты, где author__username совпадает с target_username
-        queryset = Post.objects.filter(
-            author__username=target_username
-        ).order_by('-pub_date')
-        
-        return queryset
 
 
 class ProfileUpdateView(LoginRequiredMixin, UpdateView):
     model = User
-    fields = ['first_name', 'last_name', 'email']
+    # Используем поля, которые ожидает тест (имя, фамилия, почта)
+    form_class = UserForm
     template_name = 'blog/user.html'
+    success_url = '/'
     slug_field = 'username'
     slug_url_kwarg = 'username'
 
-    def dispatch(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance != request.user:
+    def get_object(self, queryset=None):
+        # Получаем пользователя из URL (username)
+        username = self.kwargs.get('username')
+        user = get_object_or_404(User, username=username)
+        
+        # Проверяем, что текущий пользователь редактирует свой профиль
+        if user != self.request.user:
             raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+        
+        return user
 
+    def form_valid(self, form):
+        # Явно сохраняем форму (хотя UpdateView это делает)
+        user = form.save()
+        messages.success(self.request, 'Профиль успешно обновлён.')  # Опционально
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        # Temporary debug: save form errors to disk for diagnostics
+        try:
+            from pathlib import Path
+            Path('profile_form_errors.txt').write_text(str(form.errors))
+        except Exception:
+            pass
+        return super().form_invalid(form)
+    
     def get_success_url(self):
-        return reverse('blog:profile', kwargs={'username': self.object.username})
+        # Возвращаем на страницу профиля
+        return reverse('blog:profile', kwargs={'username': self.request.user.username})
 
 
 class CategoryListView(ListView):
@@ -133,19 +156,23 @@ class CategoryListView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return Category.objects.filter(
-            is_published=True,
-        ).order_by('-posts__pub_date')
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        category_slug = self.kwargs['category_slug']
-        category = get_object_or_404(Category, slug=category_slug, is_published=True)
-        context['category'] = category
-        context['post_list'] = category.posts.filter(
+        # 1. Сначала находим нужную категорию по slug
+        self.category = get_object_or_404(
+            Category, 
+            slug=self.kwargs['category_slug'], 
+            is_published=True
+        )
+        # 2. Возвращаем только те посты, которые относятся к этой категории
+        # и проходят фильтрацию по публикации
+        return self.category.posts.filter(
             is_published=True,
             pub_date__lte=timezone.now()
         ).order_by('-pub_date')
+
+    def get_context_data(self, **kwargs):
+        # Добавляем саму категорию в контекст, чтобы вывести её заголовок в шаблоне
+        context = super().get_context_data(**kwargs)
+        context['category'] = self.category
         return context
 
 
@@ -157,7 +184,11 @@ class CommentCreateView(LoginRequiredMixin,CreateView):
     success_url = '/'
 
     def form_valid(self, form):
-        post = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
+        post = get_object_or_404(
+            Post,  
+            pk=self.kwargs.get('post_id'),
+            is_published=True,
+            pub_date__lte=timezone.now())
 
         form.instance.post = post
         form.instance.author = self.request.user
@@ -166,7 +197,8 @@ class CommentCreateView(LoginRequiredMixin,CreateView):
         return super().form_valid(form)
     
     def get_success_url(self):
-        return reverse('blog:post_detail', kwargs={'pk': self.object.post.pk}) 
+        # Редирект на профиль
+        return reverse('blog:profile', kwargs={'username': self.request.user.username})
 
 
 class CommentUpdateView(LoginRequiredMixin,UpdateView):
