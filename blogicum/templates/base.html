@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="ru">
   <head>
-    {% load bootstrap5 %}
+    {% load django_bootstrap5 %}
     {% bootstrap_css %}
     {% bootstrap_javascript %}
     <meta charset="utf-8">
@@ -23,6 +23,11 @@
         {% block content %}{% endblock %}
       </div>
     </main>
+    {% if user.is_authenticated %}
+      <form id="logout-form" method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+      </form>
+    {% endif %}
     {% include "includes/footer.html" %}
   </body>
 </html>
